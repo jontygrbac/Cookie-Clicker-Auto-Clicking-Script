@@ -72,8 +72,18 @@ def replaceToInt(value):
         "septillion": 10**24,
         "octillion": 10**27,
         "nonillion": 10**30,
+        "undecillion": 10**36,
+        "duodecillion": 10**39,
+        "tredecillion": 10**42,
+        "quattuordecillion": 10**45,
+        "quindecillion": 10**48,
+        "sexdecillion": 10**51,
+        "septendecillion": 10**54,
+        "octodecillion": 10**57,
+        "novemdecillion": 10**60,
+        "vigintillion": 10**63,
         "decillion": 10**33,
-        "un": 10**36
+        "googol": 10**100
     }
 
     # Clean the value by removing spaces and periods
@@ -100,7 +110,7 @@ def getUpgradePrice(id):
     if price_element:
         price_text = price_element.text.strip().replace(",", "")
         price_text = replaceToInt(price_text)
-        if price_text < 100:
+        if price_text % 10 != 0:
             price_text = float('inf')
         return price_text
     else:
@@ -124,12 +134,19 @@ def purchase(cookies, prices, clickCount):
     if upgradePrices[lowestUpgrade] < prices[lowestPrice]:
         if cookies > upgradePrices[lowestUpgrade]:
             try:
-                pyautogui.click(element_positioning(lowestUpgrade), interval=0.001)
+                #pyautogui.click(element_positioning(lowestUpgrade), interval=0.001)
+                click_script = f"document.getElementById('{lowestUpgrade}').click();"
+                driver.execute_script(click_script)
                 upgradePrices.pop(lowestUpgrade)
             except:
                 upgradePrices.pop(lowestUpgrade)
     elif cookies > prices[lowestPrice]:
-        pyautogui.click(element_positioning(lowestPrice), interval=0.001)
+        attemptAmounts = int(cookies / prices[lowestPrice])
+
+        for x in range(attemptAmounts):
+        #pyautogui.click(element_positioning(lowestPrice), interval=0.001)
+            click_script = f"document.getElementById('{lowestPrice}').click();"
+            driver.execute_script(click_script)
 
     clickCount = prices[lowestPrice]
     prices = getProductPrices()
@@ -150,8 +167,6 @@ try:
     cookie_x, cookie_y = element_positioning("bigCookie")
     prices = getProductPrices()
     upgradePrices = getUpgradePrices()
-
-    print(upgradePrices)
     clickCount = defaultClickCount
 
 
