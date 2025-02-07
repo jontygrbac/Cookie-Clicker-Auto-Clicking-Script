@@ -5,20 +5,36 @@ from webdriver_manager.chrome import ChromeDriverManager
 import pyautogui
 import time
 import keyboard
+from bs4 import BeautifulSoup
+
+#setup variables, product lists and defaults
+products = []
+productsPrice = []
+upgrades = []
+for x in range(20):
+    products.append(f"product{x}")
+    productsPrice.append(f"productPrice{x}")
+
+for x in range(716):
+    upgrades.append(f'upgrade{x}')
+defaultClickCount = 50
 
 # Set up the browser
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 driver.get("https://orteil.dashnet.org/cookieclicker/")
 
-# Wait for the big cookie element to load
+# Wait for the elements to load
 driver.implicitly_wait(10)  # Wait up to 10 seconds
+# Execute the JavaScript to get the tooltip HTML
 
+# Offsets will be used so the clicker is always in the correct position no matter the device
 browser_offset_x = driver.get_window_position()['x']
 browser_offset_y = driver.get_window_position()['y'] + driver.execute_script('return window.outerHeight - window.innerHeight;')
 
 def center_of_element(rect):
     return rect['x'] + rect['width'] // 2, rect['y'] + rect['height'] // 2
 
+# Retrieve the element positioning, we will use this for our clicker
 def element_positioning(element):
     element_retrieved = driver.find_element(By.ID, element)
     position = element_retrieved.rect
@@ -26,6 +42,98 @@ def element_positioning(element):
     x += browser_offset_x
     y += browser_offset_y
     return (x, y)
+
+def getCookies():
+    cookies = driver.find_element(By.ID, "cookies")
+    return replaceToInt(cookies.text.split(" ")[0].replace(",", ""))
+
+# Find the prices for all 20 products, if they are locked set to inf
+def getPrice(product):
+    price = driver.find_element(By.ID, product)
+    if price.text == "":
+        return float('inf')
+    return replaceToInt(price.text.replace(",", ""))
+
+def getProductPrices():
+    prices = {}
+    for x in productsPrice:
+        prices[x] = (getPrice(x))
+    return prices
+
+def replaceToInt(value):
+    # Define suffixes and their corresponding multiplier values
+    suffixes = {
+        "million": 10**6,
+        "billion": 10**9,
+        "trillion": 10**12,
+        "quadrillion": 10**15,
+        "quintillion": 10**18,
+        "sextillion": 10**21,
+        "septillion": 10**24,
+        "octillion": 10**27,
+        "nonillion": 10**30,
+        "decillion": 10**33,
+        "un": 10**36
+    }
+
+    # Clean the value by removing spaces and periods
+    value = value.replace(" ", "").replace(".", "")
+
+    # Check for suffix and multiply accordingly
+    for suffix, multiplier in suffixes.items():
+        if suffix in value:
+            numeric_part = value.replace(suffix, "")
+            return int(numeric_part) * multiplier
+
+    # Default conversion if no suffix is found
+    return int(value)
+
+def getUpgradePrice(id):
+    # Execute the JavaScript to get the tooltip HTML
+    tooltip_html = driver.execute_script(f"return Game.crateTooltip(Game.UpgradesById[{id}], 'store');")
+
+    # Parse the HTML using BeautifulSoup
+    soup = BeautifulSoup(tooltip_html, 'html.parser')
+
+    # Extract the price value
+    price_element = soup.find('span', class_='price')
+    if price_element:
+        price_text = price_element.text.strip().replace(",", "")
+        price_text = replaceToInt(price_text)
+        if price_text < 100:
+            price_text = float('inf')
+        return price_text
+    else:
+        return float('inf')
+
+
+def getUpgradePrices():
+    upgradePrices = {}
+    count = 0
+    for x in upgrades:
+        upgradePrices[x] = (getUpgradePrice(count))
+        count += 1
+    return upgradePrices 
+    
+
+# Find the lowest price and purchase it if cookies are available
+def purchase(cookies, prices, clickCount):
+    lowestPrice = min(prices, key=prices.get)
+    lowestUpgrade = min(upgradePrices, key=upgradePrices.get)
+
+    if upgradePrices[lowestUpgrade] < prices[lowestPrice]:
+        if cookies > upgradePrices[lowestUpgrade]:
+            try:
+                pyautogui.click(element_positioning(lowestUpgrade), interval=0.001)
+                upgradePrices.pop(lowestUpgrade)
+            except:
+                upgradePrices.pop(lowestUpgrade)
+    elif cookies > prices[lowestPrice]:
+        pyautogui.click(element_positioning(lowestPrice), interval=0.001)
+
+    clickCount = prices[lowestPrice]
+    prices = getProductPrices()
+    return clickCount, prices
 
 #Finding the english language element
 try:
@@ -40,25 +148,28 @@ except Exception as e:
 #Finding the cookie to be clicked
 try:
     cookie_x, cookie_y = element_positioning("bigCookie")
-    #Alternate between products for purchase, 
-    #Need to automate this so when the score reaches a certain level, it will search available products
-    #e.g id=product0Price
-    #cookies amount    id=cookies
-    #Purchasing products that fit the budget
-    product0_x, product0_y = element_positioning("product0")
-    product1_x, product1_y = element_positioning("product1")
+    prices = getProductPrices()
+    upgradePrices = getUpgradePrices()
+
+    print(upgradePrices)
+    clickCount = defaultClickCount
+
+
+# Program loop, escape will allow exit
     while(keyboard.is_pressed('esc') != True):
-        pyautogui.click(cookie_x, cookie_y, clicks=50, interval=0.001)
-        pyautogui.click(product0_x, product0_y, clicks=1, interval=0.001)
-        pyautogui.click(product1_x, product1_y, clicks=1, interval=0.001)
+
+        pyautogui.click(cookie_x, cookie_y, clicks=clickCount, interval=0.00001)
+        cookies = getCookies()
+        if keyboard.is_pressed('q'):
+            input("Press enter to unpause")
+        
+        # Proceed to purchase and return new prices and clickCounts
+        clickCount, prices = purchase(cookies, prices, clickCount)
+
 except Exception as e:
     print(f"Failed to find elements: {e}")
     driver.quit()
     exit()
 
-
-
-
 # Clean up
-time.sleep(2)
 driver.quit()
