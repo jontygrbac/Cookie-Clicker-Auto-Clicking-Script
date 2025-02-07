@@ -3,7 +3,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import pyautogui
-import time
 import keyboard
 from bs4 import BeautifulSoup
 
@@ -18,6 +17,7 @@ for x in range(20):
 for x in range(716):
     upgrades.append(f'upgrade{x}')
 defaultClickCount = 50
+
 
 # Set up the browser
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
@@ -142,7 +142,6 @@ def purchase(cookies, prices, clickCount):
                 upgradePrices.pop(lowestUpgrade)
     elif cookies > prices[lowestPrice]:
         attemptAmounts = int(cookies / prices[lowestPrice])
-
         for x in range(attemptAmounts):
         #pyautogui.click(element_positioning(lowestPrice), interval=0.001)
             click_script = f"document.getElementById('{lowestPrice}').click();"
@@ -186,5 +185,4 @@ except Exception as e:
     driver.quit()
     exit()
 
-# Clean up
 driver.quit()
